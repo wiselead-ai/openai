@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 )
 
 func (c *Client) CreateVectorStore(ctx context.Context, in *CreateVectorStoreInput) (*VectorStore, error) {
+	c.logger.Info("Creating vector store", slog.Any("input", in))
+
 	body, err := json.Marshal(in)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
@@ -50,6 +53,8 @@ func (c *Client) WaitForVectorStoreCompletion(ctx context.Context, vectorStoreID
 	delay := 1 * time.Second // initial delay for exponential backoff
 
 	for {
+		c.logger.Info("Checking vector store status", slog.String("vectorStoreID", vectorStoreID))
+
 		req, err := http.NewRequest(http.MethodGet, c.baseURL+"/vector_stores/"+vectorStoreID, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create HTTP request: %w", err)
