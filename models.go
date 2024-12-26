@@ -81,29 +81,21 @@ type (
 	// Vector Store
 
 	CreateVectorStoreInput struct {
-		Name        string   `json:"name"`
-		Description string   `json:"description,omitempty"`
-		FileIDs     []string `json:"file_ids"`
+		Name        string         `json:"name"`
+		Description string         `json:"description,omitempty"`
+		Metadata    map[string]any `json:"metadata,omitempty"`
+		FileIDs     []string       `json:"file_ids"`
 	}
 
 	VectorStore struct {
-		ID         string `json:"id"`
-		Object     string `json:"object"`
-		Name       string `json:"name"`
-		Status     string `json:"status"`
-		UsageBytes int    `json:"usage_bytes"`
-		CreatedAt  int64  `json:"created_at"`
-		FileCounts struct {
-			InProgress int `json:"in_progress"`
-			Completed  int `json:"completed"`
-			Failed     int `json:"failed"`
-			Cancelled  int `json:"cancelled"`
-			Total      int `json:"total"`
-		} `json:"file_counts"`
-		Metadata     map[string]interface{} `json:"metadata"`
-		ExpiresAfter interface{}            `json:"expires_after"`
-		ExpiresAt    interface{}            `json:"expires_at"`
-		LastActiveAt int64                  `json:"last_active_at"`
+		ID           string         `json:"id"`
+		Object       string         `json:"object"`
+		Name         string         `json:"name"`
+		Description  string         `json:"description"`
+		Status       string         `json:"status"`
+		Metadata     map[string]any `json:"metadata"`
+		CreatedAt    int64          `json:"created_at"`
+		LastActiveAt int64          `json:"last_active_at"`
 	}
 
 	// WhisperAI

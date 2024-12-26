@@ -14,14 +14,30 @@ import (
 )
 
 func (c *Client) CreateVectorStore(ctx context.Context, in *CreateVectorStoreInput) (*VectorStore, error) {
-	c.logger.Info("Creating vector store", slog.Any("input", in))
+	if in == nil {
+		return nil, fmt.Errorf("input cannot be nil")
+	}
+
+	if in.Name == "" {
+		return nil, fmt.Errorf("name is required")
+	}
+
+	if in.FileIDs == nil || len(in.FileIDs) == 0 {
+		return nil, fmt.Errorf("fileIDs is required")
+	}
+
+	c.logger.Info("Creating vector store",
+		slog.String("name", in.Name),
+		slog.Any("fileIDs", in.FileIDs))
 
 	body, err := json.Marshal(in)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/vector_stores", bytes.NewBuffer(body))
+	c.logger.Debug("Request body", slog.String("body", string(body)))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/vector_stores", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
@@ -29,7 +45,6 @@ func (c *Client) CreateVectorStore(ctx context.Context, in *CreateVectorStoreInp
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("OpenAI-Beta", "assistants=v2")
-	req.ContentLength = int64(len(body))
 
 	resp, err := httpclient.DoWithRetry(c.httpClient, req)
 	if err != nil {
