@@ -29,6 +29,7 @@ func (c *Client) CreateVectorStore(ctx context.Context, in *CreateVectorStoreInp
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("OpenAI-Beta", "assistants=v2")
+	req.ContentLength = int64(len(body))
 
 	resp, err := httpclient.DoWithRetry(c.httpClient, req)
 	if err != nil {
@@ -59,7 +60,6 @@ func (c *Client) WaitForVectorStoreCompletion(ctx context.Context, vectorStoreID
 		if err != nil {
 			return fmt.Errorf("failed to create HTTP request: %w", err)
 		}
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
@@ -76,10 +76,10 @@ func (c *Client) WaitForVectorStoreCompletion(ctx context.Context, vectorStoreID
 			return fmt.Errorf("failed to decode response: %w", err)
 		}
 
-		fmt.Printf("Vector store response: %+v\n", response)
+		c.logger.Info("Vector store response", slog.Any("response", response))
 
 		if response.Status == "completed" {
-			fmt.Println("Vector store creation completed successfully.")
+			c.logger.Info("Vector store creation completed successfully")
 			return nil
 		}
 
@@ -95,7 +95,7 @@ func (c *Client) WaitForVectorStoreCompletion(ctx context.Context, vectorStoreID
 			delay *= 2 // Double the delay for the next attempt
 		}
 
-		fmt.Printf("Waiting for %v before retrying...\n", delay)
+		c.logger.Info("Waiting for delay before retrying", slog.Any("delay", delay))
 		time.Sleep(delay)
 	}
 }
