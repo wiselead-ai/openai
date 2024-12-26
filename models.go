@@ -1,21 +1,11 @@
 package openaicli
 
-import (
-	"encoding/json"
-)
-
-type Model string
+import "io"
 
 const (
 	AssistantModel Model = "gpt-4o-mini"
-	EmbeddingModel Model = "text-embedding-3-small"
 
-	RoleUser      = "user"
-	RoleAssistant = "assistant"
-	RoleSystem    = "system"
-
-	ToolTypeCodeInterpreter = "code_interpreter"
-	ToolTypeFileSearch      = "file_search"
+	RoleUser = "user"
 
 	RunStatusQueued         = "queued"
 	RunStatusInProgress     = "in_progress"
@@ -25,22 +15,30 @@ const (
 	RunStatusCancelled      = "cancelled"
 	RunStatusExpired        = "expired"
 	RunStatusRequiresAction = "requires_action"
+	RunStatusPending        = "pending"
+
+	// Tool types
+	ToolTypeFunction        = "function"
+	ToolTypeCodeInterpreter = "code_interpreter"
+	ToolTypeFileSearch      = "file_search"
 )
 
 type (
-	// Meta allows for arbitrary metadata to be attached to objects.
+	Model string
+
+	// Common types
 	Meta map[string]any
 
 	// Assistant
 
 	CreateAssistantInput struct {
-		Name         string   `json:"name"`
-		Description  string   `json:"description"`
-		Model        Model    `json:"model"`
-		Instructions string   `json:"instructions"`
-		Tools        []Tool   `json:"tools"`
-		FileIDs      []string `json:"file_ids,omitempty"`
-		Metadata     Meta     `json:"metadata,omitempty"`
+		Metadata      Meta          `json:"metadata,omitempty"`
+		Name          string        `json:"name"`
+		Description   string        `json:"description"`
+		Model         Model         `json:"model"`
+		Instructions  string        `json:"instructions"`
+		Tools         []Tool        `json:"tools"`
+		ToolResources ToolResources `json:"tool_resources,omitempty"`
 	}
 
 	Assistant struct {
@@ -56,19 +54,129 @@ type (
 		Metadata     Meta     `json:"metadata,omitempty"`
 	}
 
-	AssistantFiles struct {
-		Object string          `json:"object"`
-		Data   []AssistantFile `json:"data"`
+	Tool struct {
+		Type     string              `json:"type"`
+		Function *FunctionDefinition `json:"function,omitempty"`
 	}
 
-	AssistantFile struct {
+	ToolResources struct {
+		CodeInterpreter *CodeInterpreter `json:"code_interpreter,omitempty"`
+		FileSearch      *FileSearch      `json:"file_search,omitempty"`
+	}
+
+	CodeInterpreter struct {
+		FileIDs []string `json:"file_ids"`
+	}
+
+	FileSearch struct {
+		VectorStoreIDs []string `json:"vector_store_ids"`
+	}
+
+	FunctionDefinition struct {
+		Name        string         `json:"name"`
+		Description string         `json:"description"`
+		Parameters  map[string]any `json:"parameters"`
+	}
+
+	// Vector Store
+
+	CreateVectorStoreInput struct {
+		Name        string   `json:"name"`
+		Description string   `json:"description,omitempty"`
+		FileIDs     []string `json:"file_ids"`
+	}
+
+	VectorStore struct {
+		ID         string `json:"id"`
+		Object     string `json:"object"`
+		Name       string `json:"name"`
+		Status     string `json:"status"`
+		UsageBytes int    `json:"usage_bytes"`
+		CreatedAt  int64  `json:"created_at"`
+		FileCounts struct {
+			InProgress int `json:"in_progress"`
+			Completed  int `json:"completed"`
+			Failed     int `json:"failed"`
+			Cancelled  int `json:"cancelled"`
+			Total      int `json:"total"`
+		} `json:"file_counts"`
+		Metadata     map[string]interface{} `json:"metadata"`
+		ExpiresAfter interface{}            `json:"expires_after"`
+		ExpiresAt    interface{}            `json:"expires_at"`
+		LastActiveAt int64                  `json:"last_active_at"`
+	}
+
+	// WhisperAI
+
+	TranscribeAudioInput struct {
+		Name string
+		Data io.Reader
+	}
+
+	// Yet to organize the below types
+
+	CreateMessageInput struct {
+		ThreadID string
+		Message  ThreadMessage
+	}
+
+	ThreadMessage struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}
+
+	RunSteps struct {
+		Object string    `json:"object"`
+		Data   []RunStep `json:"data"`
+	}
+
+	RunStep struct {
+		ID          string      `json:"id"`
+		Object      string      `json:"object"`
+		CreatedAt   int64       `json:"created_at"`
+		RunID       string      `json:"run_id"`
+		Status      string      `json:"status"`
+		StepDetails *StepDetail `json:"step_details"`
+	}
+
+	StepDetail struct {
+		Type      string     `json:"type"`
+		ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+	}
+
+	ToolCall struct {
+		ID        string       `json:"id"`
+		Type      string       `json:"type"`
+		Function  FunctionCall `json:"function"`
+		Arguments string       `json:"arguments"`
+	}
+
+	FunctionCall struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	}
+
+	ListResponse struct {
+		Object  string `json:"object"`
+		Data    []any  `json:"data"`
+		FirstID string `json:"first_id"`
+		LastID  string `json:"last_id"`
+		HasMore bool   `json:"has_more"`
+	}
+
+	FileUploadResponse struct {
 		ID        string `json:"id"`
 		Object    string `json:"object"`
+		Purpose   string `json:"purpose"`
 		CreatedAt int64  `json:"created_at"`
-		FileID    string `json:"file_id"`
 	}
 
-	// Thread
+	FileDetails struct {
+		ID        string `json:"id"`
+		Object    string `json:"object"`
+		Purpose   string `json:"purpose"`
+		CreatedAt int64  `json:"created_at"`
+	}
 
 	Thread struct {
 		ID        string `json:"id"`
@@ -77,36 +185,20 @@ type (
 		Metadata  Meta   `json:"metadata"`
 	}
 
-	ThreadMessage struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
+	ThreadMessageList struct {
+		Object  string           `json:"object"`
+		Data    []MessageContent `json:"data"`
+		FirstID string           `json:"first_id"`
+		LastID  string           `json:"last_id"`
 	}
 
-	CreateThreadMessageInput struct {
-		ThreadID string
-		Message  ThreadMessage
-	}
-
-	// Run
-
-	Run struct {
-		ID             string          `json:"id"`
-		Object         string          `json:"object"`
-		CreatedAt      int64           `json:"created_at"`
-		ThreadID       string          `json:"thread_id"`
-		AssistantID    string          `json:"assistant_id"`
-		Status         string          `json:"status"`
-		StartedAt      int64           `json:"started_at,omitempty"`
-		ExpiresAt      int64           `json:"expires_at,omitempty"`
-		CancelledAt    int64           `json:"cancelled_at,omitempty"`
-		FailedAt       int64           `json:"failed_at,omitempty"`
-		CompletedAt    int64           `json:"completed_at,omitempty"`
-		LastError      *Error          `json:"last_error,omitempty"`
-		Model          string          `json:"model"`
-		Instructions   string          `json:"instructions,omitempty"`
-		Tools          []Tool          `json:"tools"`
-		FileIDs        []string        `json:"file_ids"`
-		RequiredAction *RequiredAction `json:"required_action,omitempty"`
+	MessageContent struct {
+		ID        string    `json:"id"`
+		Object    string    `json:"object"`
+		CreatedAt int64     `json:"created_at"`
+		ThreadID  string    `json:"thread_id"`
+		Role      string    `json:"role"`
+		Content   []Content `json:"content"`
 	}
 
 	Content struct {
@@ -134,98 +226,38 @@ type (
 		Quote  string `json:"quote"`
 	}
 
-	RequiredAction struct {
-		Type      string     `json:"type"`
-		ToolCalls []ToolCall `json:"tool_calls"`
-	}
-
-	ToolCall struct {
-		ID        string       `json:"id"`
-		Type      string       `json:"type"`
-		Function  FunctionCall `json:"function"`
-		Arguments string       `json:"arguments"`
-	}
-
-	FunctionCall struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
-	}
-
 	ToolOutput struct {
 		ToolCallID string `json:"tool_call_id"`
 		Output     string `json:"output"`
 	}
 
-	ThreadMessageList struct {
-		Object  string           `json:"object"`
-		Data    []MessageContent `json:"data"`
-		FirstID string           `json:"first_id"`
-		LastID  string           `json:"last_id"`
+	Run struct {
+		ID             string          `json:"id"`
+		Object         string          `json:"object"`
+		CreatedAt      int64           `json:"created_at"`
+		ThreadID       string          `json:"thread_id"`
+		AssistantID    string          `json:"assistant_id"`
+		Status         string          `json:"status"`
+		StartedAt      int64           `json:"started_at,omitempty"`
+		ExpiresAt      int64           `json:"expires_at,omitempty"`
+		CancelledAt    int64           `json:"cancelled_at,omitempty"`
+		FailedAt       int64           `json:"failed_at,omitempty"`
+		CompletedAt    int64           `json:"completed_at,omitempty"`
+		LastError      *RunError       `json:"last_error,omitempty"`
+		Model          string          `json:"model"`
+		Instructions   string          `json:"instructions,omitempty"`
+		Tools          []Tool          `json:"tools"`
+		FileIDs        []string        `json:"file_ids"`
+		RequiredAction *RequiredAction `json:"required_action,omitempty"`
 	}
 
-	MessageContent struct {
-		ID        string    `json:"id"`
-		Object    string    `json:"object"`
-		CreatedAt int64     `json:"created_at"`
-		ThreadID  string    `json:"thread_id"`
-		Role      string    `json:"role"`
-		Content   []Content `json:"content"`
-	}
-
-	Function struct {
-		Name        string          `json:"name"`
-		Description string          `json:"description"`
-		Parameters  json.RawMessage `json:"parameters"`
-	}
-
-	Tool struct {
-		Type     string    `json:"type"`
-		Function *Function `json:"function,omitempty"`
-	}
-
-	Error struct {
+	RunError struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	}
 
-	ListResponse struct {
-		Object  string `json:"object"`
-		Data    []any  `json:"data"`
-		FirstID string `json:"first_id"`
-		LastID  string `json:"last_id"`
-		HasMore bool   `json:"has_more"`
-	}
-
-	FileUploadResponse struct {
-		ID        string `json:"id"`
-		Object    string `json:"object"`
-		Purpose   string `json:"purpose"`
-		CreatedAt int64  `json:"created_at"`
-	}
-
-	FileDetails struct {
-		ID        string `json:"id"`
-		Object    string `json:"object"`
-		Purpose   string `json:"purpose"`
-		CreatedAt int64  `json:"created_at"`
-	}
-
-	RunSteps struct {
-		Object string    `json:"object"`
-		Data   []RunStep `json:"data"`
-	}
-
-	RunStep struct {
-		ID          string      `json:"id"`
-		Object      string      `json:"object"`
-		CreatedAt   int64       `json:"created_at"`
-		RunID       string      `json:"run_id"`
-		Status      string      `json:"status"`
-		StepDetails *StepDetail `json:"step_details"`
-	}
-
-	StepDetail struct {
+	RequiredAction struct {
 		Type      string     `json:"type"`
-		ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+		ToolCalls []ToolCall `json:"tool_calls"`
 	}
 )

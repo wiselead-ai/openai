@@ -8,9 +8,11 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/wiselead-ai/httpclient"
 )
 
-func (c *Client) NewThread(ctx context.Context) (*Thread, error) {
+func (c *Client) CreateThread(ctx context.Context) (*Thread, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
@@ -25,14 +27,15 @@ func (c *Client) NewThread(ctx context.Context) (*Thread, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("OpenAI-Beta", "assistants=v2")
 
-	resp, err := c.doWithRetry(req)
+	resp, err := httpclient.DoWithRetry(c.httpClient, req)
 	if err != nil {
 		return nil, fmt.Errorf("could not send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code: '%d', response: '%s'", resp.StatusCode, string(b))
 	}
 
 	var thread Thread
@@ -42,7 +45,7 @@ func (c *Client) NewThread(ctx context.Context) (*Thread, error) {
 	return &thread, nil
 }
 
-func (c *Client) AddMessage(ctx context.Context, in CreateThreadMessageInput) error {
+func (c *Client) AddMessage(ctx context.Context, in CreateMessageInput) error {
 	jsonData, err := json.Marshal(in.Message)
 	if err != nil {
 		return fmt.Errorf("could not marshal message: %w", err)
@@ -69,7 +72,8 @@ func (c *Client) AddMessage(ctx context.Context, in CreateThreadMessageInput) er
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code: '%d', response: '%s'", resp.StatusCode, string(b))
 	}
 	return nil
 }
@@ -86,7 +90,7 @@ func (c *Client) GetMessages(ctx context.Context, threadID string) (*ThreadMessa
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	req.Header.Set("OpenAI-Beta", "assistants=v1")
+	req.Header.Set("OpenAI-Beta", "assistants=v2")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -106,13 +110,11 @@ func (c *Client) GetMessages(ctx context.Context, threadID string) (*ThreadMessa
 }
 
 func (c *Client) RunThread(ctx context.Context, threadID, assistantID string) (*Run, error) {
-	input := struct {
+	jsonData, err := json.Marshal(struct {
 		AssistantID string `json:"assistant_id"`
 	}{
 		AssistantID: assistantID,
-	}
-
-	jsonData, err := json.Marshal(input)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal run input: %w", err)
 	}
@@ -131,7 +133,7 @@ func (c *Client) RunThread(ctx context.Context, threadID, assistantID string) (*
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("OpenAI-Beta", "assistants=v2")
 
-	resp, err := c.doWithRetry(req)
+	resp, err := httpclient.DoWithRetry(c.httpClient, req)
 	if err != nil {
 		return nil, fmt.Errorf("could not send request: %w", err)
 	}
@@ -149,6 +151,7 @@ func (c *Client) RunThread(ctx context.Context, threadID, assistantID string) (*
 	return &run, nil
 }
 
+// Add this new method to handle tool outputs
 func (c *Client) SubmitToolOutputs(ctx context.Context, threadID string, runID string, outputs []ToolOutput) error {
 	input := struct {
 		ToolOutputs []ToolOutput `json:"tool_outputs"`
@@ -175,7 +178,7 @@ func (c *Client) SubmitToolOutputs(ctx context.Context, threadID string, runID s
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("OpenAI-Beta", "assistants=v2")
 
-	resp, err := c.doWithRetry(req)
+	resp, err := httpclient.DoWithRetry(c.httpClient, req)
 	if err != nil {
 		return fmt.Errorf("could not send request: %w", err)
 	}
@@ -203,7 +206,7 @@ func (c *Client) GetRun(ctx context.Context, threadID, runID string) (*Run, erro
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("OpenAI-Beta", "assistants=v2")
 
-	resp, err := c.doWithRetry(req)
+	resp, err := httpclient.DoWithRetry(c.httpClient, req)
 	if err != nil {
 		return nil, fmt.Errorf("could not send request: %w", err)
 	}
