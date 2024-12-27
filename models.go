@@ -1,4 +1,4 @@
-package openaicli
+package openai
 
 import "io"
 

@@ -1,4 +1,4 @@
-package openaicli
+package openai
 
 import (
 	"log/slog"
@@ -26,7 +26,7 @@ func WithBaseURL(url string) ClientOption {
 // New creates a new OpenAI client
 func New(logger *slog.Logger, apiKey string, httpClient *http.Client, opts ...ClientOption) *Client {
 	c := Client{
-		logger:     logger.WithGroup("openaicli"),
+		logger:     logger.WithGroup("openai"),
 		apiKey:     apiKey,
 		httpClient: httpClient,
 		baseURL:    "https://api.openai.com/v1",
