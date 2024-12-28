@@ -39,6 +39,7 @@ type (
 		Instructions  string        `json:"instructions"`
 		Tools         []Tool        `json:"tools"`
 		ToolResources ToolResources `json:"tool_resources,omitempty"`
+		Temperature   *float64      `json:"temperature,omitempty"`
 	}
 
 	ModifyAssistantInput struct {
@@ -47,6 +48,7 @@ type (
 		Tools         []Tool        `json:"tools,omitempty"`
 		ToolResources ToolResources `json:"tool_resources,omitempty"`
 		Metadata      Meta          `json:"metadata,omitempty"`
+		Temperature   *float64      `json:"temperature,omitempty"`
 	}
 
 	Assistant struct {
