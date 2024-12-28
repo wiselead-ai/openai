@@ -109,7 +109,6 @@ func (c *Client) WaitForVectorStoreCompletion(ctx context.Context, vectorStoreID
 		if delay < maxDelay {
 			delay *= 2 // Double the delay for the next attempt
 		}
-
 		c.logger.Info("Waiting for delay before retrying", slog.Any("delay", delay))
 		time.Sleep(delay)
 	}

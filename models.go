@@ -41,6 +41,14 @@ type (
 		ToolResources ToolResources `json:"tool_resources,omitempty"`
 	}
 
+	ModifyAssistantInput struct {
+		Description   string        `json:"description,omitempty"`
+		Instructions  string        `json:"instructions,omitempty"`
+		Tools         []Tool        `json:"tools,omitempty"`
+		ToolResources ToolResources `json:"tool_resources,omitempty"`
+		Metadata      Meta          `json:"metadata,omitempty"`
+	}
+
 	Assistant struct {
 		ID           string   `json:"id"`
 		Object       string   `json:"object"`
