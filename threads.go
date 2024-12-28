@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/wiselead-ai/httpclient"
@@ -73,7 +74,20 @@ func (c *Client) AddMessage(ctx context.Context, in CreateMessageInput) error {
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status code: '%d', response: '%s'", resp.StatusCode, string(b))
+		if strings.Contains(string(b), "Can't add messages to thread") {
+			time.Sleep(5 * time.Second)
+			resp, err = c.httpClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("could not send request: %w", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				b, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("unexpected status code: '%d', response: '%s'", resp.StatusCode, string(b))
+			}
+		} else {
+			return fmt.Errorf("unexpected status code: '%d', response: '%s'", resp.StatusCode, string(b))
+		}
 	}
 	return nil
 }
