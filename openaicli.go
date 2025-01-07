@@ -3,6 +3,7 @@ package openai
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 )
 
 // Client represents an OpenAI API client
@@ -19,7 +20,7 @@ type ClientOption func(*Client)
 // WithBaseURL sets a custom base URL for the client
 func WithBaseURL(url string) ClientOption {
 	return func(c *Client) {
-		c.baseURL = url
+		c.baseURL = strings.TrimSuffix(url, "/")
 	}
 }
 

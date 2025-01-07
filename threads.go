@@ -254,7 +254,7 @@ func (c *Client) WaitForRun(ctx context.Context, threadID, runID string) error {
 				return fmt.Errorf("run failed without error details")
 			case RunStatusCancelled, RunStatusExpired:
 				return fmt.Errorf("run ended with status: %s", run.Status)
-			case RunStatusQueued, RunStatusInProgress:
+			case RunStatusQueued, RunStatusInProgress, RunStatusRequiresAction:
 				time.Sleep(time.Second)
 				continue
 			default:
