@@ -1,6 +1,9 @@
 package openai
 
-import "io"
+import (
+	"encoding/json"
+	"io"
+)
 
 const (
 	DefaultAssistTemp  float64 = 0.2
@@ -275,5 +278,26 @@ type (
 	RequiredAction struct {
 		Type      string     `json:"type"`
 		ToolCalls []ToolCall `json:"tool_calls"`
+	}
+
+	StreamEvent struct {
+		Event string          `json:"event"`
+		Data  json.RawMessage `json:"data"`
+	}
+
+	TextDelta struct {
+		Value    string `json:"value"`
+		Snapshot string `json:"snapshot"`
+	}
+
+	ToolCallDelta struct {
+		Type            string `json:"type"`
+		CodeInterpreter struct {
+			Input   string `json:"input,omitempty"`
+			Outputs []struct {
+				Type string `json:"type"`
+				Logs string `json:"logs,omitempty"`
+			} `json:"outputs,omitempty"`
+		} `json:"code_interpreter,omitempty"`
 	}
 )
