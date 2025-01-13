@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -44,6 +45,98 @@ func (c *Client) CreateThread(ctx context.Context) (*Thread, error) {
 		return nil, fmt.Errorf("could not decode response: %w", err)
 	}
 	return &thread, nil
+}
+func (c *Client) StreamThread(ctx context.Context, threadID, assistantID, userMessage string) (<-chan string, <-chan error) {
+	textChan := make(chan string)
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer close(textChan)
+		defer close(errChan)
+
+		if err := c.AddMessage(ctx, CreateMessageInput{
+			ThreadID: threadID,
+			Message: ThreadMessage{
+				Role:    RoleUser,
+				Content: userMessage,
+			},
+		}); err != nil {
+			errChan <- fmt.Errorf("could not add message: %w", err)
+			return
+		}
+
+		jsonData, err := json.Marshal(map[string]interface{}{
+			"assistant_id": assistantID,
+			"stream":       true,
+		})
+		if err != nil {
+			errChan <- fmt.Errorf("could not marshal run request: %w", err)
+			return
+		}
+
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodPost,
+			fmt.Sprintf("%s/threads/%s/runs", c.baseURL, threadID),
+			bytes.NewBuffer(jsonData),
+		)
+		if err != nil {
+			errChan <- fmt.Errorf("could not create request: %w", err)
+			return
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		req.Header.Set("OpenAI-Beta", "assistants=v2")
+		req.Header.Set("Accept", "text/event-stream")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			errChan <- fmt.Errorf("could not send request: %w", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		scanner := bufio.NewScanner(resp.Body)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" || !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				return
+			}
+
+			var threadMessage struct {
+				Object string `json:"object"`
+				Delta  struct {
+					Content []struct {
+						Type string `json:"type"`
+						Text struct {
+							Value string `json:"value"`
+						} `json:"text"`
+					} `json:"content"`
+				} `json:"delta"`
+			}
+
+			if err := json.Unmarshal([]byte(data), &threadMessage); err != nil {
+				continue // Skip non-message events
+			}
+
+			if threadMessage.Object == "thread.message.delta" &&
+				len(threadMessage.Delta.Content) > 0 &&
+				threadMessage.Delta.Content[0].Type == "text" {
+				textChan <- threadMessage.Delta.Content[0].Text.Value
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			errChan <- fmt.Errorf("scanner error: %w", err)
+		}
+	}()
+	return textChan, errChan
 }
 
 func (c *Client) AddMessage(ctx context.Context, in CreateMessageInput) error {
@@ -202,7 +295,6 @@ func (c *Client) SubmitToolOutputs(ctx context.Context, threadID string, runID s
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, body)
 	}
-
 	return nil
 }
 
