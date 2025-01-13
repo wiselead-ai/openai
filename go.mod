@@ -1,10 +1,10 @@
 module github.com/wiselead-ai/openai
 
-go 1.22.3
+go 1.23.4
 
 require (
 	github.com/stretchr/testify v1.10.0
-	github.com/wiselead-ai/httpclient v0.0.0-20250107091128-587150c33e23
+	github.com/wiselead-ai/httpclient v0.0.0-20250113160640-93a489d7e048
 )
 
 require (
