@@ -143,7 +143,12 @@ func TestClient_UploadFile(t *testing.T) {
 				apiKey:     "test-key",
 			}
 
-			resp, err := client.UploadFile(context.Background(), bytes.NewReader(tt.data), tt.purpose)
+			resp, err := client.UploadFile(
+				context.Background(),
+				bytes.NewReader(tt.data),
+				tt.purpose,
+				"txt",
+			)
 			if tt.expectError {
 				require.Error(t, err)
 				return

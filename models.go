@@ -3,7 +3,8 @@ package openai
 import "io"
 
 const (
-	AssistantModel Model = "gpt-4o-mini"
+	DefaultAssistTemp  float64 = 0.2
+	DefaultAssistModel Model   = "gpt-4o-mini"
 
 	RoleUser = "user"
 
@@ -21,7 +22,20 @@ const (
 	ToolTypeFunction        = "function"
 	ToolTypeCodeInterpreter = "code_interpreter"
 	ToolTypeFileSearch      = "file_search"
+
+	// Supported file types for vector stores and file search
+	FileTypePDF  = "pdf"
+	FileTypeTXT  = "txt"
+	FileTypeJSON = "json"
+	FileTypeMD   = "md"
 )
+
+var supportedFileTypes = map[string]bool{
+	FileTypePDF:  true,
+	FileTypeTXT:  true,
+	FileTypeJSON: true,
+	FileTypeMD:   true,
+}
 
 type (
 	Model string
@@ -30,6 +44,7 @@ type (
 	Meta map[string]any
 
 	// Assistant
+	// https://platform.openai.com/docs/api-reference/assistants/createAssistant
 
 	CreateAssistantInput struct {
 		Metadata      Meta          `json:"metadata,omitempty"`
@@ -91,17 +106,15 @@ type (
 	// Vector Store
 
 	CreateVectorStoreInput struct {
-		Name        string         `json:"name"`
-		Description string         `json:"description,omitempty"`
-		Metadata    map[string]any `json:"metadata,omitempty"`
-		FileIDs     []string       `json:"file_ids"`
+		Name     string         `json:"name"`
+		Metadata map[string]any `json:"metadata,omitempty"`
+		FileIDs  []string       `json:"file_ids"`
 	}
 
 	VectorStore struct {
 		ID           string         `json:"id"`
 		Object       string         `json:"object"`
 		Name         string         `json:"name"`
-		Description  string         `json:"description"`
 		Status       string         `json:"status"`
 		Metadata     map[string]any `json:"metadata"`
 		CreatedAt    int64          `json:"created_at"`
@@ -177,6 +190,7 @@ type (
 		ID        string `json:"id"`
 		Object    string `json:"object"`
 		Purpose   string `json:"purpose"`
+		Filename  string `json:"filename"`
 		CreatedAt int64  `json:"created_at"`
 	}
 

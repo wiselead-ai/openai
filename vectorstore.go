@@ -8,6 +8,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/wiselead-ai/httpclient"
@@ -22,8 +24,24 @@ func (c *Client) CreateVectorStore(ctx context.Context, in *CreateVectorStoreInp
 		return nil, fmt.Errorf("name is required")
 	}
 
-	if in.FileIDs == nil || len(in.FileIDs) == 0 {
+	if len(in.FileIDs) == 0 {
 		return nil, fmt.Errorf("fileIDs is required")
+	}
+
+	// Validate file types before creating vector store
+	for _, fileID := range in.FileIDs {
+		fileInfo, err := c.GetFileMetadata(ctx, fileID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get file metadata for %s: %w", fileID, err)
+		}
+
+		ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(fileInfo.Filename), "."))
+		if !supportedFileTypes[ext] {
+			return nil, fmt.Errorf(
+				"file %s has unsupported extension '.%s'. Supported types: .pdf, .txt, .json, .md",
+				fileInfo.Filename, ext,
+			)
+		}
 	}
 
 	c.logger.Info("Creating vector store",
@@ -34,8 +52,6 @@ func (c *Client) CreateVectorStore(ctx context.Context, in *CreateVectorStoreInp
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
-
-	c.logger.Debug("Request body", slog.String("body", string(body)))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/vector_stores", bytes.NewBuffer(body))
 	if err != nil {
@@ -112,4 +128,32 @@ func (c *Client) WaitForVectorStoreCompletion(ctx context.Context, vectorStoreID
 		c.logger.Info("Waiting for delay before retrying", slog.Any("delay", delay))
 		time.Sleep(delay)
 	}
+}
+
+// Add new helper method to get file metadata
+func (c *Client) GetFileMetadata(ctx context.Context, fileID string) (*FileDetails, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/files/%s", c.baseURL, fileID),
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file metadata: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var fileInfo FileDetails
+	if err := json.NewDecoder(resp.Body).Decode(&fileInfo); err != nil {
+		return nil, fmt.Errorf("failed to decode file metadata: %w", err)
+	}
+
+	return &fileInfo, nil
 }

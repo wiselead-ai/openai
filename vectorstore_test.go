@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,6 +19,7 @@ func TestClient_CreateVectorStore(t *testing.T) {
 	tests := []struct {
 		name           string
 		input          *CreateVectorStoreInput
+		fileMetadata   *FileDetails
 		serverResponse *VectorStore
 		serverStatus   int
 		expectedError  bool
@@ -25,16 +27,19 @@ func TestClient_CreateVectorStore(t *testing.T) {
 		{
 			name: "successful creation",
 			input: &CreateVectorStoreInput{
-				Name:        "Test Store",
-				Description: "Test description",
-				FileIDs:     []string{"file-123"},
-				Metadata:    map[string]any{"key": "value"},
+				Name:     "Test Store",
+				FileIDs:  []string{"file-123"},
+				Metadata: map[string]any{"key": "value"},
+			},
+			fileMetadata: &FileDetails{
+				ID:       "file-123",
+				Filename: "test.txt",
+				Purpose:  "assistants",
 			},
 			serverResponse: &VectorStore{
 				ID:           "vec_123",
 				Object:       "vector_store",
 				Name:         "Test Store",
-				Description:  "Test description",
 				Status:       "active",
 				CreatedAt:    1699009709,
 				LastActiveAt: 1699009709,
@@ -57,9 +62,20 @@ func TestClient_CreateVectorStore(t *testing.T) {
 			t.Parallel()
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				require.Equal(t, "/vector_stores", r.URL.Path) // Fixed: changed from vector-stores to vector_stores
-				require.Equal(t, http.MethodPost, r.Method)
 				require.Equal(t, "Bearer test-key", r.Header.Get("Authorization"))
+
+				if strings.HasPrefix(r.URL.Path, "/files/") {
+					// Handle file metadata request
+					w.WriteHeader(http.StatusOK)
+					if tt.fileMetadata != nil {
+						json.NewEncoder(w).Encode(tt.fileMetadata)
+					}
+					return
+				}
+
+				// Handle vector store creation request
+				require.Equal(t, "/vector_stores", r.URL.Path)
+				require.Equal(t, http.MethodPost, r.Method)
 
 				w.WriteHeader(tt.serverStatus)
 				if tt.serverResponse != nil {

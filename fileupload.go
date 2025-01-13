@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"time"
@@ -42,11 +43,30 @@ func (c *Client) ListFiles(ctx context.Context) (*ListResponse, error) {
 }
 
 // UploadFile uploads a file to OpenAI with enhanced logging
-func (c *Client) UploadFile(ctx context.Context, data io.Reader, purpose string) (*FileUploadResponse, error) {
+func (c *Client) UploadFile(ctx context.Context, data io.Reader, purpose, ext string) (*FileUploadResponse, error) {
+	if data == nil {
+		return nil, fmt.Errorf("data cannot be nil")
+	}
+
+	if purpose == "" {
+		return nil, fmt.Errorf("purpose is required")
+	}
+
+	if ext == "" {
+		return nil, fmt.Errorf("extension is required")
+	}
+
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
-	filename := fmt.Sprintf("data_%d.json", time.Now().UnixNano())
+	filename := fmt.Sprintf("data_%d.%s", time.Now().Unix(), ext)
+
+	if c.logger != nil {
+		c.logger.Info("Uploading file",
+			slog.String("filename", filename),
+			slog.String("purpose", purpose),
+			slog.String("extension", ext))
+	}
 
 	part, err := writer.CreateFormFile("file", filename)
 	if err != nil {
@@ -73,7 +93,7 @@ func (c *Client) UploadFile(ctx context.Context, data io.Reader, purpose string)
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	resp, err := httpclient.DoWithRetry(c.httpClient, req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error sending request: %w", err)
 	}
