@@ -56,6 +56,10 @@ func (c *Client) UploadFile(ctx context.Context, data io.Reader, purpose, ext st
 		return nil, fmt.Errorf("extension is required")
 	}
 
+	if !supportedFileTypes[ext] {
+		return nil, fmt.Errorf("extension '%s' is not supported", ext)
+	}
+
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
