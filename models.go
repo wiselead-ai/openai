@@ -7,7 +7,7 @@ import (
 
 const (
 	DefaultAssistTemp  float64 = 0.2
-	DefaultAssistModel Model   = "gpt-4o-mini"
+	DefaultAssistModel Model   = "gpt-4-turbo"
 
 	RoleUser = "user"
 
