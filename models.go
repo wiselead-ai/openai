@@ -216,6 +216,7 @@ type (
 		Object    string    `json:"object"`
 		CreatedAt int64     `json:"created_at"`
 		ThreadID  string    `json:"thread_id"`
+		RunID     string    `json:"run_id"`
 		Role      string    `json:"role"`
 		Content   []Content `json:"content"`
 	}
